@@ -6,6 +6,7 @@ set(SOURCES
 	dicer/polynomial.h
 	dicer/polynomial.cpp
 	dicer/utils.h
+	dicer/hash.h
 
 	dicer/aeon_trespass/aeon_trespass.h
 	dicer/aeon_trespass/aeon_trespass.cpp

@@ -6,52 +6,69 @@ namespace spaceless {
 
 class monomial final {
 public:
-	monomial() : resource_(&buffer_, buffer_.size()), exponents_(&resource_) {}
-	monomial(const monomial &rhs) : monomial() { *this = rhs; }
-	monomial &operator = (const monomial &rhs) { exponents_ = rhs.exponents_; return *this; }
+	monomial() noexcept = default;
+	monomial(const monomial &) noexcept = default;
+	monomial &operator = (const monomial &) noexcept = default;
 
-	template<std::ranges::input_range Range>
-	monomial(const Range &range) : exponents_(std::ranges::begin(range), std::ranges::end(range)) { trim(); }
-	monomial(const std::initializer_list<int> &list) : exponents_(std::ranges::begin(list), std::ranges::end(list)) { trim(); }
+	template<std::ranges::sized_range Range>
+	monomial(const Range &range) noexcept : dim_(int(std::ranges::size(range))) { std::ranges::copy(range, exponents_.begin()); trim(); }
+	monomial(const std::initializer_list<int> &list) noexcept : monomial(std::views::all(list)) {}
 
-	void resize(int n) { exponents_.resize(n); }
+	void resize(int n) noexcept {
+		if (n < dim_) [[unlikely]] std::memset(exponents_.data() + n, 0, (dim_ - n) * sizeof(int));
+		dim_ = n;
+	}
 
-	int dimension() const { return int(exponents_.size()); }
+	int dimension() const noexcept { return dim_; }
 
-	template<typename Self> auto &&operator[] (this Self &&self, int idx) { return std::forward<Self>(self).exponents_[idx]; }
-	template<typename Self> auto data(this Self &&self) { return std::forward<Self>(self).exponents_.data(); }
-	template<typename Self> auto &&begin(this Self &&self) { return std::forward<Self>(self).exponents_.begin(); }
-	template<typename Self> auto &&end(this Self &&self) { return std::forward<Self>(self).exponents_.end(); }
+	// these 4 functions are unsafe, use with your own risk! trim after you finishing editing
+	template<typename Self> auto &&operator[] (this Self &&self, int idx) noexcept { return std::forward<Self>(self).exponents_[idx]; }
+	template<typename Self> auto data(this Self &&self) noexcept { return std::forward<Self>(self).exponents_.data(); }
+	template<typename Self> auto &&begin(this Self &&self) noexcept { return std::forward<Self>(self).exponents_.begin(); }
+	template<typename Self> auto &&end(this Self &&self) noexcept { return std::forward<Self>(self).exponents_.end(); }
 
-	int get_exponent(int idx) const { return idx < dimension() ? exponents_[idx] : 0; }
-	void set_exponent(int idx, int exponent) { if (!exponent) return; if (idx >= dimension()) resize(idx + 1); exponents_[idx] = exponent; }
+	int get_exponent(int idx) const noexcept { return exponents_[idx]; }
+	void set_exponent_unsafe(int idx, int exponent) {
+		exponents_[idx] = exponent;
+		dim_ = std::max(idx + 1, dim_);
+	}
+	void set_exponent(int idx, int exponent) noexcept {
+		if (idx >= dimension()) {
+			if (!exponent) return;
+			dim_ = idx + 1;
+			exponents_[idx] = exponent;
+			return;
+		}
+		exponents_[idx] = exponent;
+		trim();
+	}
 
-	monomial &invert() { for (int &x : *this) x = -x; return *this; }
-	monomial inverse() const { auto ret = *this; return ret.invert(); }
+	monomial &invert() noexcept { for (int &x : *this) x = -x; return *this; }
+	monomial inverse() const noexcept { auto ret = *this; return ret.invert(); }
 
-	monomial &trim() {
-		while (!exponents_.empty() && !exponents_.back())
-			exponents_.pop_back();
+	monomial &trim() noexcept {
+		while (dim_ && !exponents_[dim_ - 1])
+			--dim_;
 		return *this;
 	}
 
-	monomial &operator *= (const monomial &rhs) {
+	monomial &operator *= (const monomial &rhs) noexcept  {
+		int d = std::min(dimension(), rhs.dimension());
 		if (rhs.dimension() > dimension())
-			exponents_.resize(rhs.dimension());
-		for (int i = 0; i < std::min(dimension(), rhs.dimension()); i++)
+			dim_ = rhs.dimension();
+		for (int i = 0; i < d; i++)
 			exponents_[i] += rhs.exponents_[i];
 		return trim();
 	}
-	monomial &operator /= (const monomial &rhs) { return *this *= rhs.inverse(); }
-	monomial operator * (const monomial &rhs) const { auto ret = *this; return ret *= rhs; }
-	monomial operator / (const monomial &rhs) const { auto ret = *this; return ret /= rhs; }
-	auto operator <=> (const monomial &rhs) const { return exponents_ <=> rhs.exponents_; }
-	bool operator == (const monomial &rhs) const { return exponents_ == rhs.exponents_; }
+	monomial &operator /= (const monomial &rhs) noexcept { return *this *= rhs.inverse(); }
+	monomial operator * (const monomial &rhs) const noexcept { auto ret = *this; return ret *= rhs; }
+	monomial operator / (const monomial &rhs) const noexcept { auto ret = *this; return ret /= rhs; }
+	auto operator <=> (const monomial &rhs) const noexcept = default;
+	bool operator == (const monomial &rhs) const noexcept = default;
 
 private:
-	std::array<std::byte, sizeof(int) * 16> buffer_{};
-	std::pmr::monotonic_buffer_resource resource_;
-	std::pmr::vector<int> exponents_;
+	int dim_ = 0;
+	std::array<int, 16> exponents_{};
 };
 
 }

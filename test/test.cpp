@@ -12,7 +12,7 @@ using namespace spaceless;
 static void AeonTrespassTest() {
 	using namespace aeon_trespass;
 	titan_profile titan;
-	titan.red = 1;
+	titan.red = 10;
 	weapon_profile weapon;
 	weapon.hit_bonus = 1;
 	weapon.hit_dice_count = 2;
@@ -106,7 +106,8 @@ static void Playground() {
 int main(int argc, char **argv) {
 	int begin = clock(), end = 0;
 
-	AeonTrespassTest();
+	for (int i = 0; i < 50; i++)
+		AeonTrespassTest();
 	//ExplodeTest();
 	//PolynomialTest();
 	//Playground();

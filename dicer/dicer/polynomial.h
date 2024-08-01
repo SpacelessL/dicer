@@ -150,7 +150,7 @@ private:
 		auto from_flat_index = [&](size_t flat_index) {
 			mono ret;
 			for (int i = 0; i < D; i++) {
-				ret.set_exponent(i, flat_index / shape_stride[i] + minl[i] + minr[i]);
+				ret.set_exponent_unsafe(i, flat_index / shape_stride[i] + minl[i] + minr[i]);
 				flat_index %= shape_stride[i];
 			}
 			return ret.trim();
