@@ -12,12 +12,12 @@ using namespace spaceless;
 static void AeonTrespassTest() {
 	using namespace aeon_trespass;
 	titan_profile titan;
-	titan.red = 10;
+	titan.red = 1;
 	weapon_profile weapon;
 	weapon.hit_bonus = 1;
-	weapon.hit_dice_count = 2;
-	weapon.perhit_red = 0;
-	weapon.perhit_black = 2;
+	weapon.hit_dice_count = 3;
+	weapon.perhit_red = 2;
+	weapon.perhit_black = 0;
 	weapon.power_bonus = 1;
 	kratos_pool pool;
 	pool.break_count = 2;
@@ -28,7 +28,7 @@ static void AeonTrespassTest() {
 	reroll.power_reroll = 2;
 	primordial_profile primordial;
 	primordial.at_fields = { 8, 8, 8, 9, 10, 11 }; // Bird Lv III
-	primordial.to_hit = 0;
+	primordial.to_hit = 7;
 	auto prob = titan_attack_primordial(titan, weapon, pool, reroll, primordial);
 	std::cout << "overall succ prob for Lv III Brother Bird is " << prob << std::endl;
 }
@@ -106,7 +106,7 @@ static void Playground() {
 int main(int argc, char **argv) {
 	int begin = clock(), end = 0;
 
-	for (int i = 0; i < 50; i++)
+	for (int i = 0; i < 10; i++)
 		AeonTrespassTest();
 	//ExplodeTest();
 	//PolynomialTest();

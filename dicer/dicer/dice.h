@@ -127,7 +127,8 @@ public:
 	template<std::ranges::input_range Range>
 	dice(const Range &range, std::shared_ptr<indexer<symbol>> idx) : dice(std::ranges::begin(range), std::ranges::end(range), idx) {}
 
-	auto get_indexer() const { return idx; }
+	auto &&get_indexer() const { return idx; }
+	auto &&get_poly() const { return pl; }
 
 	auto to_number_dice(const symbol &s) const {
 		int index = idx->get_index(s);

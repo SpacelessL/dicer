@@ -177,8 +177,8 @@ static double titan_attack_primordial(titan_profile titan, weapon_profile weapon
 					succ_prob_cache.emplace(std::make_tuple(red, black, white, break_count, hope_count), dist);
 				}
 				accumulator ret;
-				for (auto &&[face, prob] : dist.to_faces_with_prob())
-					if (count_symbol(face) >= at)
+				for (auto &&[face, prob] : dist.get_poly().terms)
+					if (face[0] >= at)
 						ret += prob;
 				return double(ret);
 			};
