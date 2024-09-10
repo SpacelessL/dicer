@@ -55,16 +55,16 @@ static void PolynomialTest() {
 		b.terms.emplace(monomial({ 0, 1 }), 1);
 
 		auto c = a / b, d = a % b;
-		a.debug_log();
-		b.debug_log();
-		c.debug_log();
-		d.debug_log();
+		std::cout << a << '\n';
+		std::cout << b << '\n';
+		std::cout << c << '\n';
+		std::cout << d << '\n';
 		auto e = c * b;
-		e.debug_log();
+		std::cout << e << '\n';
 		auto f = e + d;
-		f.debug_log();
+		std::cout << f << '\n';
 		auto g = f - a;
-		g.debug_log();
+		std::cout << g << '\n';
 	}
 	{
 		polynomial a, b;
@@ -76,16 +76,16 @@ static void PolynomialTest() {
 		b.terms.emplace(monomial({ 0 }), -3);
 
 		auto c = a / b, d = a % b;
-		a.debug_log();
-		b.debug_log();
-		c.debug_log();
-		d.debug_log();
+		std::cout << a << '\n';
+		std::cout << b << '\n';
+		std::cout << c << '\n';
+		std::cout << d << '\n';
 		auto e = c * b;
-		e.debug_log();
+		std::cout << e << '\n';
 		auto f = e + d;
-		f.debug_log();
+		std::cout << f << '\n';
 		auto g = f - a;
-		g.debug_log();
+		std::cout << g << '\n';
 	}
 }
 

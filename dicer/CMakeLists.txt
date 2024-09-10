@@ -4,7 +4,8 @@ set(SOURCES
 	dicer/indexer.h
 	dicer/monomial.h
 	dicer/polynomial.h
-	dicer/polynomial.cpp
+	dicer/fft.h
+	dicer/fft.cpp
 	dicer/utils.h
 	dicer/hash.h
 

@@ -2,20 +2,13 @@
 
 #include "monomial.h"
 #include "utils.h"
+#include "fft.h"
 
 #include <iostream>
 #include <limits>
-#include <complex>
 #include <map>
 
 namespace spaceless {
-
-namespace detail {
-using vec_complex = std::vector<std::complex<double>>;
-vec_complex fft(const vec_complex &input, int dim, const int64_t *sizes);
-vec_complex ifft(const vec_complex &input, int dim, const int64_t *sizes);
-vec_complex multiply(const vec_complex &lhs, const vec_complex &rhs);
-}
 
 struct polynomial final {
 	using mono = monomial;
@@ -27,29 +20,47 @@ struct polynomial final {
 	polynomial &operator = (polynomial &&) noexcept = default;
 
 	polynomial(const mono &mono, double coef = 1) { terms.emplace(mono, coef); }
+	explicit polynomial(double x) : polynomial({}, x) {}
 
 	static polynomial identity() { return { {}, 1 }; }
 
-	polynomial operator - () const { polynomial ret = *this; for (auto &coef : ret.terms | std::views::values) coef = -coef; return ret; }
-	polynomial operator + (const polynomial &rhs) const { polynomial ret = *this; ret += rhs; return ret; }
-	polynomial operator - (const polynomial &rhs) const { polynomial ret = *this; ret -= rhs; return ret; }
-	polynomial operator * (const polynomial &rhs) const { if constexpr (std::is_same_v<double, double>) return fft_multiply(rhs); return naive_multiply(rhs); }
+	polynomial operator - () const & { return -polynomial(*this); }
+	polynomial operator + () const & { return *this; }
+	polynomial operator - () && { for (auto &coef : terms | std::views::values) coef = -coef; return std::move(*this); }
+	polynomial operator + () && { return std::move(*this); }
+
+	polynomial operator + (const polynomial &rhs) const & { return polynomial(*this) + rhs; }
+	polynomial operator - (const polynomial &rhs) const & { return polynomial(*this) - rhs; }
+	polynomial operator + (const polynomial &rhs) && { *this += rhs; return std::move(*this); }
+	polynomial operator - (const polynomial &rhs) && { *this -= rhs; return std::move(*this); }
+	polynomial operator * (const polynomial &rhs) const { return fft_multiply(rhs); }
 	polynomial operator / (const polynomial &rhs) const { return divide(rhs, nullptr); }
 	polynomial operator % (const polynomial &rhs) const { polynomial ret; divide(rhs, &ret); return ret; }
+
 	polynomial &operator += (const polynomial &rhs) { for (auto &&[mono, coef] : rhs.terms) terms[mono] += coef; return trim(); }
 	polynomial &operator -= (const polynomial &rhs) { for (auto &&[mono, coef] : rhs.terms) terms[mono] -= coef; return trim(); }
 	polynomial &operator *= (const polynomial &rhs) { return *this = *this * rhs; }
 	polynomial &operator /= (const polynomial &rhs) { return *this = *this / rhs; }
 	polynomial &operator %= (const polynomial &rhs) { return *this = *this % rhs; }
 
-	polynomial operator + (double c) const & { auto ret = *this; ret += c; return ret; }
-	polynomial operator - (double c) const & { auto ret = *this; ret -= c; return ret; }
-	polynomial operator * (double c) const & { auto ret = *this; ret *= c; return ret; }
-	polynomial operator / (double c) const & { auto ret = *this; ret /= c; return ret; }
-	polynomial operator + (double c) && { *this += c; return *this; }
-	polynomial operator - (double c) && { *this -= c; return *this; }
-	polynomial operator * (double c) && { *this *= c; return *this; }
-	polynomial operator / (double c) && { *this /= c; return *this; }
+#ifdef __RESHARPER__
+	friend polynomial operator + (polynomial poly, double c) { return poly; } friend polynomial operator + (double c, polynomial poly) { return poly; }
+	friend polynomial operator - (polynomial poly, double c) { return poly; } friend polynomial operator - (double c, polynomial poly) { return poly; }
+	friend polynomial operator * (polynomial poly, double c) { return poly; } friend polynomial operator * (double c, polynomial poly) { return poly; }
+	friend polynomial operator / (polynomial poly, double c) { return poly; } friend polynomial operator / (double c, polynomial poly) { return poly; }
+#else
+#define POLYNOMIAL_OPERATOR_WITH_DOUBLE(op) \
+	friend polynomial operator op (double c, const polynomial &poly) { return poly op c; } \
+	friend polynomial operator op (double c, polynomial &&poly) { return std::move(poly) op c; } \
+	polynomial operator op (double c) const & { return polynomial(*this) op c; } \
+	polynomial operator op (double c) && { *this op= c; return std::move(*this); }
+	POLYNOMIAL_OPERATOR_WITH_DOUBLE(+)
+	POLYNOMIAL_OPERATOR_WITH_DOUBLE(-)
+	POLYNOMIAL_OPERATOR_WITH_DOUBLE(*)
+	POLYNOMIAL_OPERATOR_WITH_DOUBLE(/)
+#undef POLYNOMIAL_OPERATOR_WITH_DOUBLE
+#endif
+
 	polynomial &operator += (double c) { terms[{}] += c; return *this; }
 	polynomial &operator -= (double c) { terms[{}] -= c; return *this; }
 	polynomial &operator *= (double c) { for (auto &coef : terms | std::views::values) coef *= c; return *this; }
@@ -95,8 +106,6 @@ struct polynomial final {
 	polynomial &trim(double eps = ::spaceless::eps) { std::erase_if(terms, [&](auto &&p) { return std::abs(p.second) <= eps; }); return *this; }
 	[[nodiscard]] polynomial trimmed() const { polynomial ret = *this; ret.trim(); return ret; }
 
-	void debug_log() const;
-
 	unordered_map<mono, double> terms; // mono -> coef
 
 private:
@@ -113,7 +122,7 @@ private:
 		int D = std::max(dimension(), rhs.dimension());
 		auto get_value = [D](const polynomial &poly, int init, auto &&select) {
 			std::vector ret(D, init);
-			for (auto &&[mono, coef] : poly.terms)
+			for (const auto &mono : poly.terms | std::views::keys)
 				for (int i = 0; i < D; i++)
 					ret[i] = select(ret[i], mono.get_exponent(i));
 			return ret;
@@ -162,9 +171,9 @@ private:
 			return ret;
 		};
 
-		auto outputl = detail::fft(get_input(*this, minl), D, shape.data()), outputr = detail::fft(get_input(rhs, minr), D, shape.data());
-		auto mul = detail::multiply(outputl, outputr);
-		auto result = detail::ifft(mul, D, shape.data());
+		auto outputl = detail::fft(get_input(*this, minl), shape), outputr = detail::fft(get_input(rhs, minr), shape);
+		auto mul = detail::dot(outputl, outputr);
+		auto result = detail::ifft(mul, shape);
 
 		polynomial ret;
 		auto keep = [](auto &&c) { return std::abs(c.real()) > eps; };
@@ -176,29 +185,29 @@ private:
 	}
 };
 
-inline void polynomial::debug_log() const {
+static std::ostream &operator << (std::ostream &os, const polynomial &x) {
 	auto to_var = [](int i) { return i < 3 ? char('x' + i) : char('a' + i - 3); };
 	bool first = true;
-	for (auto &&[mono, coef] : get_ordered(terms, std::greater{})) {
+	for (auto &&[mono, coef] : get_ordered(x.terms, std::greater{})) {
 		if (coef >= 0 && !first)
-			std::cout << '+';
+			os << '+';
 		if (std::abs(coef - 1) > eps)
-			std::cout << coef;
+			os << coef;
 		bool is_C = true;
 		for (int i = 0; i < mono.dimension(); i++)
 			if (int exp = mono[i]) {
-				std::cout << to_var(i);
+				os << to_var(i);
 				if (exp != 1)
-					std::cout << '^' << exp;
+					os << '^' << exp;
 				is_C = false;
 			}
 		if (is_C && std::abs(coef - 1) <= eps)
-			std::cout << coef;
+			os << coef;
 		first = false;
 	}
-	if (terms.empty())
-		std::cout << 0;
-	std::cout << std::endl;
+	if (x.terms.empty())
+		os << 0;
+	return os;
 }
 
 }

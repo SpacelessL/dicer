@@ -6,6 +6,41 @@
 
 namespace spaceless {
 
+template<auto FirstSymbol, auto ...RestSymbols>
+requires (std::is_same_v<decltype(FirstSymbol), decltype(RestSymbols)> && ...)
+class static_symbol_set final {
+public:
+	using symbol = decltype(FirstSymbol);
+
+	template<symbol SymbolValue>
+	uint8_t get_index() const noexcept {
+		if constexpr (SymbolValue == FirstSymbol) return 0;
+		return 1 + static_symbol_set<RestSymbols...>{}.template get_index<SymbolValue>();
+	}
+	template<uint8_t Index>
+	symbol from_index() const noexcept {
+		if constexpr (Index == 0) return FirstSymbol;
+		return static_symbol_set<RestSymbols...>{}.template from_index<Index - 1>();
+	}
+	template<symbol SymbolValue>
+	bool contains() const noexcept {
+		if constexpr (FirstSymbol == SymbolValue) return true;
+		return static_symbol_set<RestSymbols...>{}.template contains<SymbolValue>();
+	}
+
+	uint8_t get_index(const symbol &symbol) const {
+		if (symbol == FirstSymbol) return 0;
+		return 1 + static_symbol_set<RestSymbols...>{}.get_index(symbol);
+	}
+
+	symbol from_index(uint8_t index) const {
+		if (index == 0) return FirstSymbol;
+		return static_symbol_set<RestSymbols...>{}.from_index(index - 1);
+	}
+
+	bool contains(const symbol &symbol) const { return symbol == FirstSymbol || ((symbol == RestSymbols) || ...); }
+};
+
 template<Hashable SymbolType>
 class indexer final {
 public:
