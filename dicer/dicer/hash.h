@@ -32,15 +32,6 @@ struct ankerl::unordered_dense::hash<std::optional<T>> {
 	}
 };
 
-template<typename K, typename V>
-struct ankerl::unordered_dense::hash<std::pair<K, V>> {
-	using is_avalanching = void;
-
-	[[nodiscard]] auto operator()(const std::pair<K, V> &pair) const noexcept -> uint64_t {
-		return spaceless::hash_combine(spaceless::get_hash(pair.first), spaceless::get_hash(pair.second));
-	}
-};
-
 template<std::ranges::range Range>
 struct ankerl::unordered_dense::hash<Range> {
 	using is_avalanching = void;
@@ -58,7 +49,10 @@ struct ankerl::unordered_dense::hash<spaceless::unordered_map<K, V>> {
 	using is_avalanching = void;
 
 	[[nodiscard]] auto operator()(const spaceless::unordered_map<K, V> &map) const noexcept -> uint64_t {
-		auto vec = spaceless::get_ordered(map);
-		return spaceless::get_hash(vec);
+		std::vector<uint64_t> hashes(map.size());
+		for (auto &&[index, p] : std::views::enumerate(map))
+			hashes[index] = spaceless::get_hash(p);
+		std::ranges::sort(hashes);
+		return spaceless::get_hash(hashes);
 	}
 };

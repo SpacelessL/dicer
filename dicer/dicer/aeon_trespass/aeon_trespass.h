@@ -55,6 +55,15 @@ static const auto white_power_dice = make_dice<power_dice_symbol>(
 	make_dice_face(power_dice_symbol::power, 1, power_dice_symbol::potential, 1, power_dice_symbol::dot, 1)
 );
 
+static const auto mortal_power_dice = make_dice<power_dice_symbol>(
+	make_dice_face(power_dice_symbol::power, 3, power_dice_symbol::potential, 4, power_dice_symbol::dot, 1),
+	make_dice_face(power_dice_symbol::power, 3, power_dice_symbol::potential, 2, power_dice_symbol::dot, 0),
+	make_dice_face(power_dice_symbol::power, 2, power_dice_symbol::potential, 4, power_dice_symbol::dot, 0),
+	make_dice_face(power_dice_symbol::power, 2, power_dice_symbol::potential, 3, power_dice_symbol::dot, 1),
+	make_dice_face(power_dice_symbol::power, 1, power_dice_symbol::potential, 3, power_dice_symbol::dot, 1),
+	make_dice_face(power_dice_symbol::power, 1, power_dice_symbol::potential, 2, power_dice_symbol::dot, 1)
+);
+
 struct kratos_pool {
 	int break_count = 0;
 	int opening_count = 0;

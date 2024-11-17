@@ -26,6 +26,7 @@ class dice;
 
 struct number_dice_symbol {
 	auto operator <=> (const number_dice_symbol &rhs) const = default;
+	bool operator == (const number_dice_symbol &) const { return true; }
 	operator char() const { return '.'; }
 };
 
@@ -81,8 +82,7 @@ auto make_dice_face(const Symbol &s) { return make_dice_face(s, 1); }
 }
 
 namespace spaceless {
-
-using number_dice = dice<number_dice_symbol>;
+using number_dice = dice<static_symbol_set<number_dice_symbol{}>>;
 using number_dice_face = dice_face<number_dice_symbol>;
 
 struct result_statistics {
@@ -96,12 +96,12 @@ struct result_statistics {
 	double V = 0, D = 0;
 };
 
-template<Hashable SymbolType>
+template<SymbolSet Symbols>
 class dice final {
 public:
 	using mono = monomial;
 	using poly = polynomial;
-	using symbol = SymbolType;
+	using symbol = typename Symbols::symbol;
 
 	dice() = default;
 	dice(const dice &) = default;
@@ -215,7 +215,7 @@ public:
 		return dice<NewSymbol>(new_faces.begin(), new_faces.end(), new_indexer);
 	}
 	template<typename Func>
-	[[nodiscard]] auto transformed(Func &&func) const requires reroll_func<Func, SymbolType> { return transformed(std::forward<decltype(func)>(func), idx); }
+	[[nodiscard]] auto transformed(Func &&func) const requires reroll_func<Func, symbol> { return transformed(std::forward<decltype(func)>(func), idx); }
 
 	template<range_of<dice> Range>
 	static auto get_combination_indexer(const Range &range, bool include_source_dice = false) {
@@ -261,12 +261,25 @@ public:
 
 	// Func(symbol) -> Outputable
 	template<typename Func = std::identity>
-	void debug_log(Func &&func = {}) const;
+	void debug_log(Func &&func = {}) const {
+		for (auto &&[mn, coef] : get_ordered(pl.terms)) {
+			bool first = true;
+			std::cout << "{ ";
+			for (int i = 0; i < mn.dimension(); i++)
+				if (mn[i]) {
+					if (!first)
+						std::cout << " + ";
+					first = false;
+					std::cout << mn[i] << '*' << func(idx->from_index(i));
+				}
+			std::cout << " }: " << coef * 100 << "%" << std::endl;
+		}
+	}
 
 	// re-roll Func(dice_face) -> std::optional<dice>
 	// returned dice must be the same type and use the same indexer
 	template<typename Func>
-	[[nodiscard]] dice explode(Func &&func, int recursive_limit = 10) const requires explode_func<Func, SymbolType> {
+	[[nodiscard]] dice explode(Func &&func, int recursive_limit = 10) const requires explode_func<Func, symbol> {
 		return explode_poly([&](const mono &mn) -> std::optional<poly> {
 			auto &&opt_dice = func(to_face(mn));
 			if (!opt_dice)
@@ -324,27 +337,9 @@ private:
 		return merge_dice(vec);
 	}
 
-	std::shared_ptr<indexer<symbol>> idx;
+	std::shared_ptr<Symbols> idx;
 	poly pl;
 };
-
-// Func(symbol) -> Outputable
-template<Hashable Symbol>
-template<typename Func>
-void dice<Symbol>::debug_log(Func &&func) const {
-	for (auto &&[mn, coef] : get_ordered(pl.terms)) {
-		bool first = true;
-		std::cout << "{ ";
-		for (int i = 0; i < mn.dimension(); i++)
-			if (mn[i]) {
-				if (!first)
-					std::cout << " + ";
-				first = false;
-				std::cout << mn[i] << '*' << func(idx->from_index(i));
-			}
-		std::cout << " }: " << coef * 100 << "%" << std::endl;
-	}
-}
 
 template<typename Symbol, typename... Args>
 auto make_dice(Args&&... args) {

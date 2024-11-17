@@ -12,8 +12,6 @@
 
 namespace spaceless {
 
-// TODO : Generic reroll logic
-
 #define OVERLOADED(...) [&](auto &&...args) -> decltype(auto) { return (__VA_ARGS__)(std::forward<decltype(args)>(args)...); }
 
 inline constexpr double eps = 1e-15;
@@ -39,6 +37,8 @@ template<std::floating_point T = double>
 class accumulator final {
 public:
 	accumulator(T init = 0) noexcept : sum_(init), comp_(0) {}
+	template<std::ranges::input_range Range>
+	accumulator(Range &&range) noexcept : accumulator() { for (auto &&x : range) add(x); }
 	accumulator &operator += (T x) noexcept { add(x); return *this; }
 	accumulator &operator -= (T x) noexcept { return *this += -x; }
 	operator T() const noexcept { return sum_ + comp_; }
@@ -53,5 +53,15 @@ private:
 	}
 	T sum_, comp_;
 };
+
+template<typename T>
+inline auto squared(const T &t) {
+	return t * t;
+}
+
+template<typename T>
+inline auto cubed(const T &t) {
+	return t * t * t;
+}
 
 }
