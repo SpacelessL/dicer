@@ -4,8 +4,6 @@
 
 namespace spaceless {
 
-static constexpr size_t DYNAMIC = 0;
-
 template<size_t N, std::signed_integral T = int8_t>
 class alignas(N ? std::bit_ceil(N * sizeof(T)) : 8) monomial final {
 public:
@@ -43,6 +41,12 @@ public:
 		else
 			exponents_.resize(n);
 	}
+	constexpr void resize_if_needed(int n) noexcept(N) {
+		if constexpr (!N) {
+			if (exponents_.size() < n)
+				exponents_.resize(n);
+		}
+	}
 
 	constexpr int dimension() const noexcept { return exponents_.size(); }
 
@@ -51,14 +55,17 @@ public:
 	constexpr auto begin(this auto &&self) noexcept { return std::forward<decltype(self)>(self).exponents_.begin(); }
 	constexpr auto end(this auto &&self) noexcept { return std::forward<decltype(self)>(self).exponents_.end(); }
 
-	constexpr T get_exponent(int idx) const noexcept(N) { return exponents_[idx]; }
+	constexpr T get_exponent(int idx) const noexcept { return idx < dimension() ? exponents_[idx] : 0; }
 	constexpr void set_exponent(int idx, T exponent) noexcept(N) {
-		if constexpr (!N) {
-			if (exponents_.size() <= idx)
-				exponents_.resize(idx + 1);
-		}
+		resize_if_needed(idx + 1);
 		exponents_[idx] = exponent;
-		if (!exponent)
+		if (!exponents_[idx])
+			trim();
+	}
+	constexpr void add_exponent(int idx, T diff) noexcept(N) {
+		resize_if_needed(idx + 1);
+		exponents_[idx] += diff;
+		if (!exponents_[idx])
 			trim();
 	}
 
@@ -75,14 +82,14 @@ public:
 
 	constexpr monomial &operator *= (const monomial &rhs) noexcept(N) {
 		int n = N;
-		if constexpr (N) {
+		if constexpr (!N) {
 			if (rhs.dimension() > dimension())
 				resize(rhs.dimension());
 			n = std::min(dimension(), rhs.dimension());
 		}
 		for (int i = 0; i < n; i++)
 			exponents_[i] += rhs.exponents_[i];
-		if constexpr (N)
+		if constexpr (!N)
 			return trim();
 		return *this;
 	}
@@ -100,7 +107,7 @@ private:
 		exponents_[idx] = exponent;
 	}
 
-	std::conditional_t<N, std::array<T, N>, std::vector<T>> exponents_{};
+	std::conditional_t<N != DYNAMIC, std::array<T, N>, std::vector<T>> exponents_{};
 };
 
 template<typename T>
@@ -113,7 +120,7 @@ concept MonomialType = is_monomial<T>::value;
 
 template<typename F, typename M>
 concept MonomialTransformer = MonomialType<M> && requires(F f, M m) {
-	f(m) -> MonomialType;
+	{ f(m) } -> MonomialType;
 };
 
 }

@@ -49,9 +49,9 @@ public:
 
 	void normalize() {
 		accumulator<> sum;
-		for (auto &coef : pl.terms | std::views::values)
+		for (auto &coef : pl.terms_ | std::views::values)
 			sum += coef;
-		for (auto &coef : pl.terms | std::views::values)
+		for (auto &coef : pl.terms_ | std::views::values)
 			coef /= sum;
 	}
 
@@ -63,9 +63,9 @@ public:
 			for (auto &&[mn, coef] : distribution.pl.terms)
 				map[mn] += coef * prob;
 		distribution ret;
-		ret.pl.terms.reserve(map.size());
+		ret.pl.terms_.reserve(map.size());
 		for (auto &&[mn, prob] : map)
-			ret.pl.terms.emplace(mn, prob);
+			ret.pl.terms_.emplace(mn, prob);
 		ret.normalize();
 		return ret;
 	}
@@ -112,7 +112,7 @@ public:
 	auto get_statistics(int index) const {
 		statistics ret;
 		accumulator<> E, E2, E3;
-		for (auto &&[mn, coef] : pl.terms) {
+		for (auto &&[mn, coef] : pl.terms()) {
 			int value = mn[index];
 			ret.min = std::min(ret.min, value);
 			ret.max = std::max(ret.max, value);

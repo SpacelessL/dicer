@@ -24,7 +24,7 @@ public:
 	explicit polynomial(double x) : polynomial({}, x) {}
 	polynomial(std::initializer_list<std::pair<mono, double>> list) : terms_(list) {}
 	template<std::ranges::input_range R>
-	polynomial(R &&r) : terms_(std::ranges::begin(r), std::ranges::end(r)) {}
+	polynomial(R &&r) requires !MonomialType<mono> : terms_(std::ranges::begin(r), std::ranges::end(r)) {}
 	polynomial(unordered_map<mono, double> term) : terms_(std::move(term)) {}
 
 	static polynomial one() { return { {}, 1 }; }
@@ -47,11 +47,11 @@ public:
 	polynomial operator % (const polynomial &rhs) const { polynomial ret; divide(rhs, &ret); return ret; }
 
 	polynomial &operator += (const polynomial &rhs) {
-		for (auto &&[mono, c] : rhs.terms_) terms_[mono] += c;
+		for (auto &&[mn, c] : rhs.terms_) terms_[mn] += c;
 		return *this;
 	}
 	polynomial &operator -= (const polynomial &rhs) {
-		for (auto &&[mono, c] : rhs.terms_) terms_[mono] -= c;
+		for (auto &&[mn, c] : rhs.terms_) terms_[mn] -= c;
 		return *this;
 	}
 	polynomial &operator *= (const polynomial &rhs) { return *this = *this * rhs; }
@@ -59,20 +59,24 @@ public:
 	polynomial &operator %= (const polynomial &rhs) { return *this = *this % rhs; }
 
 #ifdef __RESHARPER__
-	friend polynomial operator + (polynomial poly, double c) { return poly; } friend polynomial operator + (double c, polynomial poly) { return poly; }
-	friend polynomial operator - (polynomial poly, double c) { return poly; } friend polynomial operator - (double c, polynomial poly) { return poly; }
-	friend polynomial operator * (polynomial poly, double c) { return poly; } friend polynomial operator * (double c, polynomial poly) { return poly; }
-	friend polynomial operator / (polynomial poly, double c) { return poly; } friend polynomial operator / (double c, polynomial poly) { return poly; }
+	friend polynomial operator + (polynomial poly, double) { return poly; } friend polynomial operator + (double, polynomial poly) { return poly; }
+	friend polynomial operator - (polynomial poly, double) { return poly; } friend polynomial operator - (double, polynomial poly) { return poly; }
+	friend polynomial operator * (polynomial poly, double) { return poly; } friend polynomial operator * (double, polynomial poly) { return poly; }
+	friend polynomial operator / (polynomial poly, double) { return poly; } friend polynomial operator / (double, polynomial poly) { return poly; }
+	friend polynomial operator + (polynomial poly, const mono &) { return poly; } friend polynomial operator + (const mono &, polynomial poly) { return poly; }
+	friend polynomial operator - (polynomial poly, const mono &) { return poly; } friend polynomial operator - (const mono &, polynomial poly) { return poly; }
 #else
-#define POLYNOMIAL_OPERATOR_WITH_DOUBLE(op) \
-	friend polynomial operator op (double c, const polynomial &poly) { return poly op c; } \
-	friend polynomial operator op (double c, polynomial &&poly) { return std::move(poly) op c; } \
-	polynomial operator op (double c) const & { return polynomial(*this) op c; } \
-	polynomial operator op (double c) && { *this op= c; return std::move(*this); }
-	POLYNOMIAL_OPERATOR_WITH_DOUBLE(+)
-	POLYNOMIAL_OPERATOR_WITH_DOUBLE(-)
-	POLYNOMIAL_OPERATOR_WITH_DOUBLE(*)
-	POLYNOMIAL_OPERATOR_WITH_DOUBLE(/)
+#define POLYNOMIAL_BINARY_OPERATORS(op, type) \
+	friend polynomial operator op (type c, const polynomial &poly) { return poly op c; } \
+	friend polynomial operator op (type c, polynomial &&poly) { return std::move(poly) op c; } \
+	polynomial operator op (type c) const & { return polynomial(*this) op c; } \
+	polynomial operator op (type c) && { *this op= c; return std::move(*this); }
+	POLYNOMIAL_BINARY_OPERATORS(+, double)
+	POLYNOMIAL_BINARY_OPERATORS(-, double)
+	POLYNOMIAL_BINARY_OPERATORS(*, double)
+	POLYNOMIAL_BINARY_OPERATORS(/, double)
+	POLYNOMIAL_BINARY_OPERATORS(+, const mono &)
+	POLYNOMIAL_BINARY_OPERATORS(-, const mono &)
 #undef POLYNOMIAL_OPERATOR_WITH_DOUBLE
 #endif
 
@@ -86,6 +90,23 @@ public:
 		for (auto &c : terms_ | std::views::values) c /= x;
 		return *this;
 	}
+
+	polynomial &operator += (const mono &mn) { ++terms_[mn]; return *this; }
+	polynomial &operator -= (const mono &mn) { --terms_[mn]; return *this; }
+	polynomial operator * (const mono &mn) const {
+		unordered_map<mono, double> terms;
+		for (auto &&[my_mn, c] : terms_ | std::views::values) terms[my_mn * mn] += c;
+		return terms;
+	}
+	polynomial operator / (const mono &mn) const {
+		unordered_map<mono, double> terms;
+		for (auto &&[my_mn, c] : terms_ | std::views::values) terms[my_mn / mn] += c;
+		return terms;
+	}
+	friend polynomial operator * (const mono &mn, const polynomial &poly) { return poly * mn; }
+	friend polynomial operator / (const mono &mn, const polynomial &poly) { return poly / mn; }
+	polynomial &operator *= (const mono &mn) { return *this = *this * mn; }
+	polynomial &operator /= (const mono &mn) { return *this = *this / mn; }
 
 	bool operator == (const polynomial &rhs) const noexcept = default;
 	bool operator != (const polynomial &rhs) const noexcept = default;
@@ -121,6 +142,8 @@ public:
 	auto &&terms() const noexcept { return terms_; }
 
 private:
+	template<size_t, std::signed_integral>
+	friend class distribution;
 
 	polynomial naive_multiply(const polynomial &rhs) const {
 		polynomial poly;
@@ -132,15 +155,15 @@ private:
 	
 	polynomial fft_multiply(const polynomial &rhs) const {
 		int D = std::max(dimension(), rhs.dimension());
-		auto get_value = [D](const polynomial &poly, int init, auto &&select) {
+		auto get_value = [D](const polynomial &poly, T init, auto &&select) {
 			std::vector ret(D, init);
 			for (const auto &mono : poly.terms_ | std::views::keys)
 				for (int i = 0; i < D; i++)
 					ret[i] = select(ret[i], mono.get_exponent(i));
 			return ret;
 		};
-		auto get_min = [&](const polynomial &poly) { return get_value(poly, std::numeric_limits<int>::max(), OVERLOADED(std::min)); };
-		auto get_max = [&](const polynomial &poly) { return get_value(poly, std::numeric_limits<int>::min(), OVERLOADED(std::max)); };
+		auto get_min = [&](const polynomial &poly) { return get_value(poly, std::numeric_limits<T>::max(), OVERLOADED(std::min)); };
+		auto get_max = [&](const polynomial &poly) { return get_value(poly, std::numeric_limits<T>::min(), OVERLOADED(std::max)); };
 
 		auto minl = get_min(*this), maxl = get_max(*this), minr = get_min(rhs), maxr = get_max(rhs);
 
@@ -161,7 +184,7 @@ private:
 			return naive_multiply(rhs);
 #endif
 
-		auto get_flat_index = [&](const mono &mono, const std::vector<int> &min) {
+		auto get_flat_index = [&](const mono &mono, const std::vector<T> &min) {
 			size_t ret = 0;
 			for (int i = 0; i < D; i++)
 				ret += (mono.get_exponent(i) - min[i]) * shape_stride[i];
@@ -170,13 +193,14 @@ private:
 		};
 		auto from_flat_index = [&](size_t flat_index) {
 			mono ret;
+			ret.resize(D);
 			for (int i = 0; i < D; i++) {
 				ret.set_exponent_unsafe(i, flat_index / shape_stride[i] + minl[i] + minr[i]);
 				flat_index %= shape_stride[i];
 			}
 			return ret.trim();
 		};
-		auto get_input = [&](const polynomial &poly, const std::vector<int> &min) {
+		auto get_input = [&](const polynomial &poly, const std::vector<T> &min) {
 			std::vector<std::complex<double>> ret(ndata);
 			for (auto &&[mono, c] : poly.terms_)
 				ret[get_flat_index(mono, min)] += c;

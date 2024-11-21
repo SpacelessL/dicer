@@ -5,13 +5,13 @@
 namespace spaceless {
 
 template<typename T>
-concept SymbolSet = requires { typename T::symbol; { T::dynamic } -> std::convertible_to<bool>; }
-	&& requires(const T t, uint8_t index, typename T::symbol x) {
+concept SymbolSet = requires { typename T::symbol; { T::N } -> std::convertible_to<size_t>; }
+	&& requires(const T t, int8_t index, typename T::symbol x) {
 		{ t.get_index(x) } -> std::integral;
 		{ t.from_index(index) } -> std::convertible_to<typename T::symbol>;
 		{ t.contains(x) } -> std::convertible_to<bool>;
 		{ t.size() } -> std::integral;
-	} && (!T::dynamic
+	} && (T::N != DYNAMIC
 		|| requires(T t, typename T::symbol x) {
 			{ t.add_symbol(x) } -> std::integral;
 		}
@@ -22,32 +22,32 @@ requires (std::is_same_v<decltype(FirstSymbol), decltype(RestSymbols)> && ...)
 class static_symbol_set final {
 public:
 	using symbol = decltype(FirstSymbol);
-	static constexpr bool dynamic = false;
-	static_assert(SymbolSet<static_symbol_set>);
+	static constexpr size_t N = 1 + sizeof...(RestSymbols);
 
-	constexpr uint8_t get_index(const symbol &symbol) const {
+	constexpr int8_t get_index(const symbol &symbol) const {
 		if (symbol == FirstSymbol) return 0;
-		return 1 + static_symbol_set<RestSymbols...>{}.get_index(symbol);
+		if constexpr (N > 1) return 1 + static_symbol_set<RestSymbols...>{}.get_index(symbol);
+		return -1;
 	}
 
-	constexpr symbol from_index(uint8_t index) const {
+	constexpr symbol from_index(int8_t index) const {
 		if (index == 0) return FirstSymbol;
-		return static_symbol_set<RestSymbols...>{}.from_index(index - 1);
+		if constexpr (N > 1) return static_symbol_set<RestSymbols...>{}.from_index(index - 1);
+		return{};
 	}
 
 	constexpr bool contains(const symbol &symbol) const {
 		return symbol == FirstSymbol || ((symbol == RestSymbols) || ...);
 	}
 
-	constexpr int size() const { return 1 + sizeof...(RestSymbols); }
+	constexpr int size() const { return N; }
 };
 
 template<Hashable SymbolType>
 class dynamic_symbol_set final {
 public:
 	using symbol = SymbolType;
-	static constexpr bool dynamic = true;
-	static_assert(SymbolSet<dynamic_symbol_set>);
+	static constexpr size_t N = DYNAMIC;
 
 	dynamic_symbol_set() = default;
 	dynamic_symbol_set(const dynamic_symbol_set &) = default;
@@ -60,76 +60,39 @@ public:
 	dynamic_symbol_set(Range &&range) { for (auto &&s : range) add_symbol(s); }
 	dynamic_symbol_set(std::initializer_list<symbol> init) : dynamic_symbol_set(std::views::all(init)) {}
 
-	uint8_t add_symbol(const symbol &symbol) {
+	int8_t add_symbol(const symbol &symbol) {
 		if (contains(symbol))
 			return get_index(symbol);
-		uint8_t ret = uint8_t(to_index.size());
+		int8_t ret = int8_t(to_index.size());
 		to_index.emplace(symbol, ret);
 		symbols.emplace_back(symbol);
 		return ret;
 	}
 
-	uint8_t get_index(const symbol &symbol) const { return to_index.at(symbol); }
+	int8_t get_index(const symbol &symbol) const { if (auto it = to_index.find(symbol); it != to_index.end()) return it->second; return -1; }
 
-	const symbol &from_index(uint8_t index) const { return symbols[index]; }
+	const symbol &from_index(int8_t index) const { return symbols[index]; }
 
 	bool contains(const symbol &symbol) const { return to_index.contains(symbol); }
 
 	int size() const { return symbols.size(); }
 
 private:
-	unordered_map<symbol, uint8_t> to_index;
+	unordered_map<symbol, int8_t> to_index;
 	std::vector<symbol> symbols;
 };
 
-template<Hashable SymbolType>
-class indexer final {
-public:
-	using symbol = SymbolType;
-
-	indexer() = default;
-	indexer(const indexer &) = default;
-	indexer(indexer &&) noexcept = default;
-	indexer &operator = (const indexer &) = default;
-	indexer &operator = (indexer &&) noexcept = default;
-	~indexer() = default;
-
-	template<std::input_iterator InputIter>
-	indexer(InputIter begin, InputIter end) { while (begin != end) add_symbol(*begin++); }
-	indexer(std::initializer_list<symbol> init) : indexer(init.begin(), init.end()) {}
-	indexer(const std::vector<symbol> &vec) : indexer(vec.begin(), vec.end()) {}
-
-	uint8_t add_symbol(const symbol &symbol) {
-		if (contains(symbol))
-			return get_index(symbol);
-		uint8_t ret = uint8_t(to_index.size());
-		symbols.emplace_back(symbol);
-		to_index.emplace(symbol, ret);
-		return ret;
-	}
-
-	uint8_t get_index(const symbol &symbol) const { return to_index.at(symbol); }
-
-	const symbol &from_index(uint8_t index) const { return symbols[index]; }
-
-	bool contains(const symbol &symbol) const { return to_index.contains(symbol); }
-
-private:
-	unordered_map<symbol, uint8_t> to_index;
-	std::vector<symbol> symbols;
-};
-
-template<Hashable Symbol, Hashable... Args>
-auto MakeIndexer(Symbol &&symbol, Args&&... args) {
-	indexer<std::remove_cvref_t<Symbol>> ret;
-	ret.add_symbol(std::forward<Symbol>(symbol));
-	(ret.add_symbol(std::forward<Args>(args)), ...);
-	return std::make_shared<decltype(ret)>(ret);
+namespace detail {
+template<string_literal Symbols, std::size_t... I>
+auto make_simple_static_symbol_set(std::index_sequence<I...>) {
+	static_assert((((Symbols[I] < '0' || Symbols[I] > '9') && Symbols[I] != '-') && ...));
+	return std::make_shared<static_symbol_set<Symbols[I]...>>();
+}
 }
 
-template<std::input_iterator Iter>
-auto MakeIndexer(Iter begin, Iter end) {
-	return std::make_shared<indexer<std::remove_cvref_t<decltype(*begin)>>>(begin, end);
+template<string_literal Symbols>
+auto make_simple_static_symbol_set() {
+	return detail::make_simple_static_symbol_set<Symbols>(std::make_index_sequence<Symbols.length()>{});
 }
 
 }

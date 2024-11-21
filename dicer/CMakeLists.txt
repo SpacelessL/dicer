@@ -1,5 +1,6 @@
 set(SOURCES
 	dicer.h
+	dicer/dice.h
 	dicer/distribution.h
 	dicer/symbol_set.h
 	dicer/monomial.h
@@ -8,9 +9,6 @@ set(SOURCES
 	dicer/fft.cpp
 	dicer/utils.h
 	dicer/hash.h
-
-	dicer/aeon_trespass/aeon_trespass.h
-	dicer/aeon_trespass/aeon_trespass.cpp
 )
 
 add_library(dicer ${SOURCES})
