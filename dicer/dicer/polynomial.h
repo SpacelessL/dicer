@@ -139,11 +139,9 @@ public:
 	}
 	double coefs_sum() const noexcept { return accumulator(terms_ | std::views::values); }
 
-	auto &&terms() const noexcept { return terms_; }
+	auto &&terms(this auto &&self) noexcept { return std::forward<decltype(self)>(self).terms_; }
 
 private:
-	template<size_t, std::signed_integral>
-	friend class distribution;
 
 	polynomial naive_multiply(const polynomial &rhs) const {
 		polynomial poly;

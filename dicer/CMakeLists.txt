@@ -1,7 +1,6 @@
 set(SOURCES
 	dicer.h
 	dicer/dice.h
-	dicer/distribution.h
 	dicer/symbol_set.h
 	dicer/monomial.h
 	dicer/polynomial.h

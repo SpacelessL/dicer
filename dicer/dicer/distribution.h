@@ -9,7 +9,7 @@
 namespace spaceless {
 // discrete distribution
 template<size_t N, std::signed_integral T = int8_t>
-class distribution final {
+class distribution {
 public:
 	struct statistics {
 		int min = std::numeric_limits<int>::max(), max = std::numeric_limits<int>::min();
@@ -127,7 +127,7 @@ public:
 		return ret;
 	}
 
-private:
+protected:
 	poly pl;
 };
 

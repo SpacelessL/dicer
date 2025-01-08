@@ -110,18 +110,15 @@ private:
 	std::conditional_t<N != DYNAMIC, std::array<T, N>, std::vector<T>> exponents_{};
 };
 
+namespace detail {
 template<typename T>
 struct is_monomial : std::false_type {};
 template<size_t N, std::signed_integral T>
 struct is_monomial<monomial<N, T>> : std::true_type {};
+}
 
 template<typename T>
-concept MonomialType = is_monomial<T>::value;
-
-template<typename F, typename M>
-concept MonomialTransformer = MonomialType<M> && requires(F f, M m) {
-	{ f(m) } -> MonomialType;
-};
+concept MonomialType = detail::is_monomial<std::remove_cvref_t<T>>::value;
 
 }
 

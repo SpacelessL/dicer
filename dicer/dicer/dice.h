@@ -1,7 +1,9 @@
 #pragma once
 
-#include "distribution.h"
 #include "symbol_set.h"
+#include "polynomial.h"
+
+#include <variant>
 
 namespace spaceless {
 
@@ -12,7 +14,6 @@ public:
 	static constexpr auto N = symbol_set::N;
 	using mono = monomial<N, T>;
 	using poly = polynomial<N, T>;
-	using dist = distribution<N, T>;
 
 	dice() = default;
 	dice(const dice &) = default;
@@ -20,16 +21,184 @@ public:
 	dice &operator = (const dice &) = default;
 	dice &operator = (dice &&) noexcept = default;
 
-	dice(std::shared_ptr<symbol_set> s, poly p) : s(std::move(s)), d(std::move(p)) {}
-	dice(std::shared_ptr<symbol_set> s, dist d) : s(std::move(s)), d(std::move(d)) {}
+	dice(std::shared_ptr<symbol_set> s, poly pl) : s(std::move(s)), pl(pl.terms().size() ? std::move(pl) : poly::one()) { normalize(); }
 
-	operator const dist &() const { return d; }
-	const dist &distribution() const { return d; }
-	const symbol_set &symbols() const { return s; }
+	struct statistics {
+		int min = std::numeric_limits<int>::max(), max = std::numeric_limits<int>::min();
+		double E = 0, V = 0, D = 0, skewness = 0;
+	};
+
+	using mono = monomial<N, T>;
+	using poly = polynomial<N, T>;
+
+	const symbol_set &symbols() const { return *s; }
+
+	const poly &generating_function() const { return pl; }
+
+	static dice zero(std::shared_ptr<symbol_set> s) {
+		return{ std::move(s), poly::identity() };
+	}
+
+	dice &clamp(double eps = ::spaceless::eps) {
+		pl.trim(eps);
+		normalize();
+		return *this;
+	}
+	[[nodiscard]]
+	dice clamped(double eps = ::spaceless::eps) const {
+		dice ret = *this;
+		ret.clamp(eps);
+		return ret;
+	}
+
+	void normalize() {
+		accumulator<> sum;
+		for (const auto &coef : pl.terms() | std::views::values)
+			sum += coef;
+		for (auto &coef : pl.terms() | std::views::values)
+			coef /= sum;
+	}
+
+	// merge range of <distribution, Prob> into a new distribution
+	template<std::ranges::input_range Range>
+	static dice merge_dice(const Range &dice_with_prob) {
+		unordered_map<mono, accumulator<>> map;
+		dice ret;
+		for (auto &&[dice, prob] : dice_with_prob) {
+			for (auto &&[mn, coef] : dice.pl.terms)
+				map[mn] += coef * prob;
+			ret.s = dice.s;
+		}
+		ret.pl.terms().reserve(map.size());
+		for (auto &&[mn, prob] : map)
+			ret.pl.terms().emplace(mn, prob);
+		ret.normalize();
+		return ret;
+	}
+
+	dice operator + (const dice &rhs) const &{
+		dice ret(s, pl * rhs.pl);
+		ret.normalize();
+		return ret;
+	}
+	dice operator + (dice &&rhs) const &{ return std::move(rhs += *this); }
+	dice operator + (const dice &rhs) &&{ return std::move(*this += rhs); }
+	dice &operator += (const dice &rhs) {
+		pl *= rhs.pl;
+		normalize();
+		return *this;
+	}
+
+	dice operator * (int times) const {
+		dice ret(s, pl.power(times));
+		ret.normalize();
+		return ret;
+	}
+	friend dice operator * (int times, const dice &d) { return d * times; }
+
+	dice negation() const {
+		dice ret;
+		ret.s = s;
+		for (auto &&[mn, p] : pl.terms())
+			ret.pl[mn.inverse()] = p;
+		return ret;
+	}
+
+	template<typename F, typename NS = S>
+	auto transformed(F &&func, std::shared_ptr<NS> ns = {}) const
+	requires requires(const mono &mn) { { func(mn) } -> MonomialType; } {
+		using new_mono = std::remove_cvref_t<std::invoke_result_t<F, mono>>;
+		if constexpr (std::is_same_v<NS, S>) if (!ns) ns = s;
+		ENSURE(ns, "Missing new symbol set");
+		unordered_map<new_mono, accumulator<>> terms;
+		for (auto &&[mono, coef] : pl.terms())
+			terms[func(mono)] += coef;
+		return distribution<NS, typename new_mono::underlying_type>(std::move(ns), std::move(terms));
+	}
+
+	template<typename F>
+	auto iterate(F &&func, std::variant<int, double> limit = 10) const {
+		
+	}
+
+	template<typename F>
+	auto exploded(F &&func, std::variant<int, double> limit = 10) const
+	requires requires(const mono &mn) { { func(mn) } -> std::convertible_to<std::optional<poly>>; } {
+		std::visit([](auto &&l) { ENSURE(l > 0); }, limit);
+		// <to_be_rolled, <cur, prob>>
+		unordered_map<std::optional<poly>, unordered_map<poly, accumulator<>>> ret;
+		ret[pl][poly::identity()] = 1.0;
+
+		int iter = 0;
+		double diff = 0;
+
+		auto valid = [&] {
+			return std::visit([&](auto &&l) {
+					if constexpr (std::is_same_v<std::decay_t<decltype(l)>, int>)
+						return iter < l;
+					return diff >= l;
+				}, limit);
+		};
+
+		do {
+			++iter;
+
+			decltype(ret) new_ret;
+			for (auto &&[opt_dice, poly_to_prob] : ret)
+				if (!opt_dice)
+					if (new_ret.contains(opt_dice))
+						for (auto &&[pl, prob] : poly_to_prob)
+							new_ret[opt_dice][pl] += prob;
+					else
+						new_ret.emplace(opt_dice, std::move(poly_to_prob));
+				else {
+					for (auto &&[mn, coef] : opt_dice->terms) {
+						const auto &to_be_rolled = func(mn);
+						for (auto &&[pl, prob] : poly_to_prob)
+							new_ret[to_be_rolled][pl * mn] += prob * coef;
+					}
+				}
+			ret = std::move(new_ret);
+		} while (valid());
+
+		std::vector<std::pair<dice, double>> vec;
+		for (auto &poly_to_prob : ret | std::views::values)
+			for (auto &&[pl, prob] : poly_to_prob)
+				vec.emplace_back(dice(pl, s), prob);
+		return merge_dice(vec);
+	}
+
+	auto sample() const {
+		double s = get_random();
+		accumulator<> sum;
+		for (auto &&[mn, coef] : pl.terms())
+			if (double(sum += coef) - s >= -eps)
+				return mn;
+		// shouldn't be able to reach here
+		return pl.terms().begin()->first;
+	}
+
+	auto get_statistics(int index) const {
+		statistics ret;
+		accumulator<> E, E2, E3;
+		for (auto &&[mn, coef] : pl.terms()) {
+			int value = mn[index];
+			ret.min = std::min(ret.min, value);
+			ret.max = std::max(ret.max, value);
+			E += value * coef;
+			E2 += squared(value) * coef;
+			E3 += cubed(value) * coef;
+		}
+		ret.E = E;
+		ret.V = E2 - squared(E);
+		ret.D = std::sqrt(ret.V);
+		ret.skewness = (E3 - 3 * E * ret.V - cubed(E)) / cubed(ret.D);
+		return ret;
+	}
 
 private:
 	std::shared_ptr<symbol_set> s;
-	dist d;
+	poly pl;
 };
 
 template<SymbolSet S, std::signed_integral T = int8_t>

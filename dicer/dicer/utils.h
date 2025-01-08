@@ -6,6 +6,7 @@
 #include <utility>
 #include <iostream>
 #include <concepts>
+#include <regex>
 #include <type_traits>
 #include <stacktrace>
 #include <source_location>
@@ -17,20 +18,19 @@ namespace spaceless {
 static constexpr size_t DYNAMIC = 0;
 
 namespace detail {
-inline auto check_ensure_value(auto &&value, const char *reason = "Unspecified Reason") { return std::make_pair(bool(value), reason); }
-[[noreturn]] inline void report_error(const char *assertion, const char *reason, std::stacktrace trace = std::stacktrace::current(), std::source_location loc = std::source_location::current()) {
+[[noreturn]] inline void report_error(const char *assertion, std::string reason = "Unspecified Reason", std::stacktrace trace = std::stacktrace::current(), std::source_location loc = std::source_location::current()) {
 	std::cerr << std::format(
-		"{}: ENSURE({}) failed\n"
-		"At {}({}:{}) `{}`\n"
-		"Stacktrace:\n{}\n"
-		, reason, assertion
+		"ENSURE({}) failed: \"{}\"\n"
+		"\tAt {}({}:{}) `{}`\n"
+		"Stacktrace:\n\t{}\n"
+		, assertion, reason
 		, loc.file_name(), loc.line(), loc.column(), loc.function_name()
-		, trace);
+		, std::regex_replace(std::to_string(trace), std::regex("\n"), "\n\t"));
 	throw std::runtime_error(reason);
 }
 }
 
-#define ENSURE(...) if (auto [value, reason] = detail::check_ensure_value(__VA_ARGS__); !value) [[unlikely]] detail::report_error(#__VA_ARGS__, reason)
+#define ENSURE(value, ...) if (!(value)) [[unlikely]] detail::report_error(#value, __VA_ARGS__)
 
 #define OVERLOADED(...) [&](auto &&...args) -> decltype(auto) { return (__VA_ARGS__)(std::forward<decltype(args)>(args)...); }
 
