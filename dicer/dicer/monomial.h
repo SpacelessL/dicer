@@ -1,5 +1,12 @@
 #pragma once
+#include <concepts>
+#include <ranges>
+#include <array>
+#include <vector>
+#include <algorithm>
+#include <bit>
 
+#include "hash.h"
 #include "utils.h"
 
 namespace spaceless {

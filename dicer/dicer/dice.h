@@ -2,6 +2,7 @@
 
 #include "symbol_set.h"
 #include "polynomial.h"
+#include "sus/math.hpp"
 
 #include <variant>
 
@@ -39,13 +40,13 @@ public:
 		return{ std::move(s), poly::identity() };
 	}
 
-	dice &clamp(double eps = ::spaceless::eps) {
+	dice &clamp(double eps = spaceless::eps) {
 		pl.trim(eps);
 		normalize();
 		return *this;
 	}
 	[[nodiscard]]
-	dice clamped(double eps = ::spaceless::eps) const {
+	dice clamped(double eps = spaceless::eps) const {
 		dice ret = *this;
 		ret.clamp(eps);
 		return ret;
@@ -114,58 +115,6 @@ public:
 		for (auto &&[mono, coef] : pl.terms())
 			terms[func(mono)] += coef;
 		return distribution<NS, typename new_mono::underlying_type>(std::move(ns), std::move(terms));
-	}
-
-	template<typename F>
-	auto iterate(F &&func, std::variant<int, double> limit = 10) const {
-		
-	}
-
-	template<typename F>
-	auto exploded(F &&func, std::variant<int, double> limit = 10) const
-	requires requires(const mono &mn) { { func(mn) } -> std::convertible_to<std::optional<poly>>; } {
-		std::visit([](auto &&l) { ENSURE(l > 0); }, limit);
-		// <to_be_rolled, <cur, prob>>
-		unordered_map<std::optional<poly>, unordered_map<poly, accumulator<>>> ret;
-		ret[pl][poly::identity()] = 1.0;
-
-		int iter = 0;
-		double diff = 0;
-
-		auto valid = [&] {
-			return std::visit([&](auto &&l) {
-					if constexpr (std::is_same_v<std::decay_t<decltype(l)>, int>)
-						return iter < l;
-					return diff >= l;
-				}, limit);
-		};
-
-		do {
-			++iter;
-
-			decltype(ret) new_ret;
-			for (auto &&[opt_dice, poly_to_prob] : ret)
-				if (!opt_dice)
-					if (new_ret.contains(opt_dice))
-						for (auto &&[pl, prob] : poly_to_prob)
-							new_ret[opt_dice][pl] += prob;
-					else
-						new_ret.emplace(opt_dice, std::move(poly_to_prob));
-				else {
-					for (auto &&[mn, coef] : opt_dice->terms) {
-						const auto &to_be_rolled = func(mn);
-						for (auto &&[pl, prob] : poly_to_prob)
-							new_ret[to_be_rolled][pl * mn] += prob * coef;
-					}
-				}
-			ret = std::move(new_ret);
-		} while (valid());
-
-		std::vector<std::pair<dice, double>> vec;
-		for (auto &poly_to_prob : ret | std::views::values)
-			for (auto &&[pl, prob] : poly_to_prob)
-				vec.emplace_back(dice(pl, s), prob);
-		return merge_dice(vec);
 	}
 
 	auto sample() const {

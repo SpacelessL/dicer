@@ -6,14 +6,18 @@ set(SOURCES
 	dicer/polynomial.h
 	dicer/fft.h
 	dicer/fft.cpp
-	dicer/utils.h
 	dicer/hash.h
+	dicer/utils.h
 )
+
+add_subdirectory(sus)
 
 add_library(dicer ${SOURCES})
 set_target_properties(dicer PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(dicer PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_compile_options(dicer PUBLIC "/openmp")
+target_compile_options(dicer PUBLIC "/Zc:preprocessor" "/openmp")
+
+target_link_libraries(dicer PUBLIC sus)
 
 if (NOT DEFINED USE_ONEMKL)
 	set(USE_ONEMKL true)

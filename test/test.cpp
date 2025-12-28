@@ -6,6 +6,8 @@
 #include "omp.h"
 #include <complex>
 
+#include "sus.hpp"
+
 using namespace spaceless;
 
 static void PolynomialTest() {
@@ -57,11 +59,14 @@ static void PolynomialTest() {
 }
 
 int main(int argc, char **argv) {
-	int begin = clock(), end = 0;
+	init(argc, argv);
 
-	PolynomialTest();
+	//PolynomialTest();
 
-	end = clock();
-	std::cout << "cost time : " << (end - begin) / 1000.0 << "s" << std::endl;
+	//SANITY_CHECK(0, "Hello", begin, end);
+	//SANITY_CHECK(0, "Hello", begin);
+	//SANITY_CHECK(0, "Hello");
+	//SANITY_CHECK(0);
+	
 	return 0;
 }

@@ -1,11 +1,14 @@
 #pragma once
 
 #include "monomial.h"
-#include "utils.h"
+#include "hash.h"
+#include "sus/misc.hpp"
+#include "sus/macro.hpp"
 #include "fft.h"
 
 #include <limits>
 #include <map>
+#include <cassert>
 
 namespace spaceless {
 
@@ -66,17 +69,17 @@ public:
 	friend polynomial operator + (polynomial poly, const mono &) { return poly; } friend polynomial operator + (const mono &, polynomial poly) { return poly; }
 	friend polynomial operator - (polynomial poly, const mono &) { return poly; } friend polynomial operator - (const mono &, polynomial poly) { return poly; }
 #else
-#define POLYNOMIAL_BINARY_OPERATORS(op, type) \
+#define POLYNOMIAL_BINARY_OPERATORS(op, op_eq, type) \
 	friend polynomial operator op (type c, const polynomial &poly) { return poly op c; } \
 	friend polynomial operator op (type c, polynomial &&poly) { return std::move(poly) op c; } \
 	polynomial operator op (type c) const & { return polynomial(*this) op c; } \
-	polynomial operator op (type c) && { *this op= c; return std::move(*this); }
-	POLYNOMIAL_BINARY_OPERATORS(+, double)
-	POLYNOMIAL_BINARY_OPERATORS(-, double)
-	POLYNOMIAL_BINARY_OPERATORS(*, double)
-	POLYNOMIAL_BINARY_OPERATORS(/, double)
-	POLYNOMIAL_BINARY_OPERATORS(+, const mono &)
-	POLYNOMIAL_BINARY_OPERATORS(-, const mono &)
+	polynomial operator op (type c) && { *this op_eq c; return std::move(*this); }
+	POLYNOMIAL_BINARY_OPERATORS(+, +=, double)
+	POLYNOMIAL_BINARY_OPERATORS(-, -=, double)
+	POLYNOMIAL_BINARY_OPERATORS(*, *=, double)
+	POLYNOMIAL_BINARY_OPERATORS(/, /=, double)
+	POLYNOMIAL_BINARY_OPERATORS(+, +=, const mono &)
+	POLYNOMIAL_BINARY_OPERATORS(-, -=, const mono &)
 #undef POLYNOMIAL_OPERATOR_WITH_DOUBLE
 #endif
 

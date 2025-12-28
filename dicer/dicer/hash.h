@@ -1,5 +1,8 @@
 #pragma once
 
+#include <ranges>
+#include <algorithm>
+
 #include "external/ankerl/unordered_dense.h"
 
 namespace spaceless {

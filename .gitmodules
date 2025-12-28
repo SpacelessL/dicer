@@ -1,0 +1,3 @@
+[submodule "dicer/sus"]
+	path = dicer/sus
+	url = https://github.com/SpacelessL/sus.git
