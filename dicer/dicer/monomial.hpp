@@ -6,8 +6,8 @@
 #include <algorithm>
 #include <bit>
 
-#include "hash.h"
-#include "utils.h"
+#include "hash.hpp"
+#include "utils.hpp"
 
 namespace spaceless {
 

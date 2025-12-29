@@ -1,10 +1,10 @@
 #pragma once
 
-#include "monomial.h"
-#include "hash.h"
+#include "monomial.hpp"
+#include "hash.hpp"
 #include "sus/misc.hpp"
 #include "sus/macro.hpp"
-#include "fft.h"
+#include "fft.hpp"
 
 #include <limits>
 #include <map>

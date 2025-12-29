@@ -1,7 +1,7 @@
 #pragma once
 
-#include "symbol_set.h"
-#include "polynomial.h"
+#include "symbol_set.hpp"
+#include "polynomial.hpp"
 #include "sus/math.hpp"
 
 #include <variant>

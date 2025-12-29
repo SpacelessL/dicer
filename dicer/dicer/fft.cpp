@@ -1,4 +1,4 @@
-#include "polynomial.h"
+#include "polynomial.hpp"
 
 #include "mkl_dfti.h"
 

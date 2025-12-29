@@ -1,6 +1,6 @@
 #pragma once
 
-#include "polynomial.h"
+#include "polynomial.hpp"
 
 #include <concepts>
 #include <ranges>

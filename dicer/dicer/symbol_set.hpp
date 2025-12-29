@@ -1,7 +1,7 @@
 #pragma once
 
-#include "hash.h"
-#include "utils.h"
+#include "hash.hpp"
+#include "utils.hpp"
 #include "sus/misc.hpp"
 
 namespace spaceless {

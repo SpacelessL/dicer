@@ -16,8 +16,8 @@ add_library(dicer
 	dicer/polynomial.h
 	dicer/fft.h
 	dicer/fft.cpp
-	dicer/hash.h
-	dicer/utils.h
+	dicer/hash.hpp
+	dicer/utils.hpp
 )
 
 set_target_properties(dicer PROPERTIES LINKER_LANGUAGE CXX)
