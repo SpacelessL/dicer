@@ -23,7 +23,7 @@ public:
 	constexpr monomial &operator = (const monomial &) noexcept(N) = default;
 	constexpr monomial &operator = (monomial &&) noexcept = default;
 
-	constexpr operator monomial<DYNAMIC, T>() const requires(N) { return monomial<DYNAMIC, T>{ *this }; }
+	constexpr operator monomial<DYNAMIC, T>() const requires(N != 0) { return monomial<DYNAMIC, T>{ *this }; }
 
 	template<std::ranges::sized_range Range>
 	explicit monomial(const Range &range) noexcept(N) {

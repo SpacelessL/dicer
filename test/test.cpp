@@ -1,9 +1,7 @@
-#include "mimalloc-new-delete.h"
 #include "dicer.h"
 #include <iostream>
 #include <mutex>
 #include <ctime>
-#include "omp.h"
 #include <complex>
 
 #include "sus.hpp"

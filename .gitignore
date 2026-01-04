@@ -43,3 +43,6 @@
 build*
 out*
 .vs
+.vscode
+.venv
+.claude

@@ -27,7 +27,7 @@ public:
 	explicit polynomial(double x) : polynomial({}, x) {}
 	polynomial(std::initializer_list<std::pair<mono, double>> list) : terms_(list) {}
 	template<std::ranges::input_range R>
-	polynomial(R &&r) requires !MonomialType<mono> : terms_(std::ranges::begin(r), std::ranges::end(r)) {}
+	polynomial(R &&r) requires(!MonomialType<mono>) : terms_(std::ranges::begin(r), std::ranges::end(r)) {}
 	polynomial(unordered_map<mono, double> term) : terms_(std::move(term)) {}
 
 	static polynomial one() { return { {}, 1 }; }
@@ -176,7 +176,7 @@ private:
 			ndata *= shape[i];
 		}
 
-#ifndef USE_ONEMKL
+#ifndef DICER_USE_ONEMKL
 		// simply because PocketFFT isn't fast enough
 		if (terms_.size() * rhs.terms_.size() <= ndata * std::log2(ndata) / 20)
 			return naive_multiply(rhs);

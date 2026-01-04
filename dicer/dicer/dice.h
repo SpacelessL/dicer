@@ -29,9 +29,6 @@ public:
 		double E = 0, V = 0, D = 0, skewness = 0;
 	};
 
-	using mono = monomial<N, T>;
-	using poly = polynomial<N, T>;
-
 	const symbol_set &symbols() const { return *s; }
 
 	const poly &generating_function() const { return pl; }

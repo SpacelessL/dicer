@@ -1,6 +1,6 @@
 #include "polynomial.h"
 
-#ifdef USE_ONEMKL
+#ifdef DICER_USE_ONEMKL
 #include "mkl_dfti.h"
 #else
 #define POCKETFFT_NO_MULTITHREADING
@@ -12,7 +12,7 @@ namespace spaceless::detail {
 
 vec_complex fft(const vec_complex &input, std::span<const int64_t> sizes) {
 	auto output = input;
-#ifdef USE_ONEMKL
+#ifdef DICER_USE_ONEMKL
 	DFTI_DESCRIPTOR_HANDLE desc;
 	MKL_LONG status;
 	if (sizes.size() == 1)
@@ -38,7 +38,7 @@ vec_complex fft(const vec_complex &input, std::span<const int64_t> sizes) {
 
 vec_complex ifft(const vec_complex &input, std::span<const int64_t> sizes) {
 	auto output = input;
-#ifdef USE_ONEMKL
+#ifdef DICER_USE_ONEMKL
 	DFTI_DESCRIPTOR_HANDLE desc;
 	MKL_LONG status;
 	if (sizes.size() == 1)
