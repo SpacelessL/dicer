@@ -3,7 +3,7 @@
 #include <ranges>
 #include <algorithm>
 
-#include "external/ankerl/unordered_dense.h"
+#include "ankerl/unordered_dense.h"
 
 namespace spaceless {
 

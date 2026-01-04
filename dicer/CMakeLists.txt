@@ -1,6 +1,7 @@
 add_subdirectory(sus)
 
 find_package(TBB CONFIG REQUIRED COMPONENTS tbb tbbmalloc)
+find_package(unordered_dense CONFIG REQUIRED)
 
 set(TBB_tbb_FOUND ${TBB_FOUND})
 set(MKL_LINK static)
@@ -31,4 +32,4 @@ target_include_directories(dicer PUBLIC
 	$<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
 )
 target_compile_options(dicer PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
-target_link_libraries(dicer PUBLIC sus TBB::tbb MKL::MKL)
+target_link_libraries(dicer PUBLIC sus TBB::tbb MKL::MKL unordered_dense::unordered_dense)

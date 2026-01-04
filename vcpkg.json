@@ -1,0 +1,7 @@
+{
+  "dependencies": [
+    "unordered-dense",
+    "intel-mkl",
+    "tbb"
+  ]
+}
