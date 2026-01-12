@@ -9,12 +9,12 @@ set(MKL_THREADING tbb_thread)
 find_package(MKL CONFIG REQUIRED)
 
 add_library(dicer
-	dicer.h
-	dicer/dice.h
-	dicer/symbol_set.h
-	dicer/monomial.h
-	dicer/polynomial.h
-	dicer/fft.h
+	dicer.hpp
+	dicer/dice.hpp
+	dicer/symbol_set.hpp
+	dicer/monomial.hpp
+	dicer/polynomial.hpp
+	dicer/fft.hpp
 	dicer/fft.cpp
 	dicer/hash.hpp
 	dicer/utils.hpp
