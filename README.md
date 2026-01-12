@@ -53,6 +53,43 @@ auto roll = three_rolls.sample();  // returns a monomial with symbol counts
 auto massive_roll = combat_die * 1000 + defense_die * 500;
 ```
 
+### Combination Dice
+```cpp
+// Combination dice track which specific faces appeared, not just sums
+// Useful for games where face identity matters (e.g., Yahtzee, poker dice)
+
+auto symbols = make_simple_static_symbol_set<"N">();
+auto d6 = make_simple_dice(symbols, "1,2,3,4,5,6");
+
+// Create a combination symbol set from the dice
+// Each unique face becomes a symbol in the new set
+auto comb_symbols = make_combination_symbol_set(std::array{d6});
+// comb_symbols->size() == 6 (one for each face: 1, 2, 3, 4, 5, 6)
+
+// Convert to combination dice
+auto comb_d6 = d6.to_combination_dice(comb_symbols);
+
+// Roll 10d6 as combination dice
+auto ten_d6 = comb_d6 * 10;
+
+// The generating function now tracks face distributions
+// e.g., "3 ones, 2 threes, 5 sixes" is a distinct outcome from "10 threes"
+auto num_outcomes = ten_d6.generating_function().terms().size();
+// num_outcomes == 8008 (C(10+6-1, 6-1) = C(15,5))
+
+// Sample and inspect which faces appeared
+auto roll = ten_d6.sample();
+for (int i = 0; i < comb_symbols->size(); ++i) {
+    int count = roll.get_exponent(i);
+    if (count > 0) {
+        auto face_value = comb_symbols->from_index(i).face[0];
+        std::cout << count << "x" << int(face_value) << " ";
+        // e.g., "2x6" means two sixes were rolled
+    }
+}
+// Example output: "1x1 2x3 3x4 4x6" (1 one, 2 threes, 3 fours, 4 sixes)
+```
+
 ### Polynomials (Generating Functions)
 ```cpp
 // Create polynomials directly
