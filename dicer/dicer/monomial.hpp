@@ -18,29 +18,29 @@ public:
 	using underlying_type = T;
 
 	constexpr monomial() noexcept = default;
-	constexpr monomial(const monomial &) noexcept(N) = default;
+	constexpr monomial(const monomial &) noexcept(N != DYNAMIC) = default;
 	constexpr monomial(monomial &&) noexcept = default;
-	constexpr monomial &operator = (const monomial &) noexcept(N) = default;
+	constexpr monomial &operator = (const monomial &) noexcept(N != DYNAMIC) = default;
 	constexpr monomial &operator = (monomial &&) noexcept = default;
 
 	constexpr operator monomial<DYNAMIC, T>() const requires(N != 0) { return monomial<DYNAMIC, T>{ *this }; }
 
 	template<std::ranges::sized_range Range>
-	explicit monomial(const Range &range) noexcept(N) {
+	explicit monomial(const Range &range) noexcept(N != DYNAMIC) {
 		if constexpr (N)
 			std::ranges::copy_n(range, std::min(std::ranges::size(range), N), exponents_.begin());
 		else
 			exponents_.insert_range(exponents_.end(), range);
 	}
 	template<typename R>
-	explicit constexpr monomial(const std::initializer_list<R> &list) noexcept(N) : monomial(std::views::all(list)) {}
+	explicit constexpr monomial(const std::initializer_list<R> &list) noexcept(N != DYNAMIC) : monomial(std::views::all(list)) {}
 
-	constexpr monomial operator - () const noexcept(N) { return inverse(); }
-	constexpr monomial operator + () const noexcept(N) { return *this; }
+	constexpr monomial operator - () const noexcept(N != DYNAMIC) { return inverse(); }
+	constexpr monomial operator + () const noexcept(N != DYNAMIC) { return *this; }
 	// one
 	constexpr static monomial identity() noexcept { return {}; }
 
-	constexpr void resize(int n) noexcept(N) {
+	constexpr void resize(int n) noexcept(N != DYNAMIC) {
 		if constexpr (N) {
 			if (n < N) [[unlikely]]
 				std::ranges::fill(exponents_.begin() + n, exponents_.end(), 0);
@@ -48,7 +48,7 @@ public:
 		else
 			exponents_.resize(n);
 	}
-	constexpr void resize_if_needed(int n) noexcept(N) {
+	constexpr void resize_if_needed(int n) noexcept(N != DYNAMIC) {
 		if constexpr (!N) {
 			if (exponents_.size() < n)
 				exponents_.resize(n);
@@ -63,13 +63,13 @@ public:
 	constexpr auto end(this auto &&self) noexcept { return std::forward<decltype(self)>(self).exponents_.end(); }
 
 	constexpr T get_exponent(int idx) const noexcept { return idx < dimension() ? exponents_[idx] : 0; }
-	constexpr void set_exponent(int idx, T exponent) noexcept(N) {
+	constexpr void set_exponent(int idx, T exponent) noexcept(N != DYNAMIC) {
 		resize_if_needed(idx + 1);
 		exponents_[idx] = exponent;
 		if (!exponents_[idx])
 			trim();
 	}
-	constexpr void add_exponent(int idx, T diff) noexcept(N) {
+	constexpr void add_exponent(int idx, T diff) noexcept(N != DYNAMIC) {
 		resize_if_needed(idx + 1);
 		exponents_[idx] += diff;
 		if (!exponents_[idx])
@@ -78,7 +78,7 @@ public:
 
 	constexpr monomial &invert() noexcept { for (T &x : exponents_) x = -x; return *this; }
 	[[nodiscard]]
-	constexpr monomial inverse() const noexcept(N) { auto ret = *this; return ret.invert(); }
+	constexpr monomial inverse() const noexcept(N != DYNAMIC) { auto ret = *this; return ret.invert(); }
 
 	constexpr monomial &trim() noexcept {
 		if constexpr (!N)
@@ -87,7 +87,7 @@ public:
 		return *this;
 	}
 
-	constexpr monomial &operator *= (const monomial &rhs) noexcept(N) {
+	constexpr monomial &operator *= (const monomial &rhs) noexcept(N != DYNAMIC) {
 		int n = N;
 		if constexpr (!N) {
 			if (rhs.dimension() > dimension())
@@ -100,9 +100,9 @@ public:
 			return trim();
 		return *this;
 	}
-	constexpr monomial &operator /= (const monomial &rhs) noexcept(N) { return *this *= rhs.inverse(); }
-	constexpr monomial operator * (const monomial &rhs) const noexcept(N) { auto ret = *this; return ret *= rhs; }
-	constexpr monomial operator / (const monomial &rhs) const noexcept(N) { auto ret = *this; return ret /= rhs; }
+	constexpr monomial &operator /= (const monomial &rhs) noexcept(N != DYNAMIC) { return *this *= rhs.inverse(); }
+	constexpr monomial operator * (const monomial &rhs) const noexcept(N != DYNAMIC) { auto ret = *this; return ret *= rhs; }
+	constexpr monomial operator / (const monomial &rhs) const noexcept(N != DYNAMIC) { auto ret = *this; return ret /= rhs; }
 	constexpr auto operator <=> (const monomial &rhs) const noexcept { return exponents_ <=> rhs.exponents_; }
 	constexpr bool operator == (const monomial &rhs) const noexcept { return exponents_ == rhs.exponents_; }
 

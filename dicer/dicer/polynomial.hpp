@@ -9,6 +9,7 @@
 #include <limits>
 #include <map>
 #include <cassert>
+#include <format>
 
 namespace spaceless {
 
@@ -226,27 +227,7 @@ private:
 
 template<size_t N, std::signed_integral T = int8_t>
 static std::ostream &operator << (std::ostream &os, const polynomial<N, T> &x) {
-	bool first = true;
-	for (auto &&[mono, c] : get_ordered(x.terms(), std::greater{})) {
-		if (c >= 0 && !first)
-			os << '+';
-		if (std::abs(c - 1) > eps)
-			os << c;
-		bool is_C = true;
-		for (int i = 0; i < mono.dimension(); i++)
-			if (int exp = mono[i]) {
-				os << "xyzwvutsabcdefghijklmnopqr"[i];
-				if (exp != 1)
-					os << '^' << exp;
-				is_C = false;
-			}
-		if (is_C && std::abs(c - 1) <= eps)
-			os << c;
-		first = false;
-	}
-	if (x.terms().empty())
-		os << 0.0;
-	return os;
+	return os << std::format("{}", x);
 }
 
 template<size_t N, std::signed_integral T>
@@ -278,6 +259,38 @@ polynomial<N, T> polynomial<N, T>::divide(const polynomial &divisor, polynomial 
 }
 
 }
+
+template<size_t N, std::signed_integral T>
+struct std::formatter<spaceless::polynomial<N, T>> {
+	template<class ParseContext>
+	constexpr auto parse(ParseContext &ctx) { return ctx.begin(); }
+
+	template<class FmtContext>
+	auto format(const spaceless::polynomial<N, T> &x, FmtContext &ctx) const {
+		auto out = ctx.out();
+		bool first = true;
+		for (auto &&[mono, c] : spaceless::get_ordered(x.terms(), std::greater{})) {
+			if (c >= 0 && !first)
+				*out++ = '+';
+			if (std::abs(c - 1) > spaceless::eps)
+				out = std::format_to(out, "{}", c);
+			bool is_C = true;
+			for (int i = 0; i < mono.dimension(); i++)
+				if (int exp = mono[i]) {
+					*out++ = "xyzwvutsabcdefghijklmnopqr"[i];
+					if (exp != 1)
+						out = std::format_to(out, "^{}", exp);
+					is_C = false;
+				}
+			if (is_C && std::abs(c - 1) <= spaceless::eps)
+				out = std::format_to(out, "{}", c);
+			first = false;
+		}
+		if (x.terms().empty())
+			out = std::format_to(out, "{}", 0.0);
+		return out;
+	}
+};
 
 template<size_t N, std::signed_integral T>
 struct ankerl::unordered_dense::hash<spaceless::polynomial<N, T>> {

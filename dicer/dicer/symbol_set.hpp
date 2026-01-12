@@ -28,7 +28,10 @@ public:
 
 	constexpr int8_t get_index(const symbol &symbol) const {
 		if (symbol == FirstSymbol) return 0;
-		if constexpr (N > 1) return 1 + static_symbol_set<RestSymbols...>{}.get_index(symbol);
+		if constexpr (N > 1) {
+			auto ret = static_symbol_set<RestSymbols...>{}.get_index(symbol);
+			return ret == -1 ? ret : 1 + ret;
+		}
 		return -1;
 	}
 

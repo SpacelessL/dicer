@@ -1,5 +1,4 @@
-#include "dicer.h"
-#include <iostream>
+#include "dicer.hpp"
 #include <mutex>
 #include <ctime>
 #include <complex>
@@ -9,38 +8,38 @@
 using namespace spaceless;
 
 static void DiceTest() {
-	std::cout << "=== Basic Dice Test ===\n";
+	LOG(INFO)("=== Basic Dice Test ===");
 
 	// Create a simple d6
 	auto symbols = make_simple_static_symbol_set<"N">();
 	auto d6 = make_simple_dice(symbols, "1,2,3,4,5,6");
 
-	std::cout << "d6 generating function: " << d6.generating_function() << '\n';
+	LOG(INFO)("d6 generating function: {}", d6.generating_function());
 
 	// Roll 2d6
 	auto two_d6 = d6 * 2;
-	std::cout << "2d6 generating function: " << two_d6.generating_function() << '\n';
+	LOG(INFO)("2d6 generating function: {}", two_d6.generating_function());
 
 	// Get statistics
 	auto stats = two_d6.get_statistics(0);
-	std::cout << "2d6 stats: min=" << stats.min << ", max=" << stats.max
-		<< ", E=" << stats.E << ", V=" << stats.V << ", D=" << stats.D << '\n';
+	LOG(INFO)("2d6 stats: min={}, max={}, E={}, V={}, D={}",
+		stats.min, stats.max, stats.E, stats.V, stats.D);
 
 	// Sample a few rolls
-	std::cout << "Sample rolls: ";
+	std::string rolls;
 	for (int i = 0; i < 5; ++i)
-		std::cout << two_d6.sample()[0] << " ";
-	std::cout << '\n';
+		rolls += std::to_string(int(two_d6.sample()[0])) + " ";
+	LOG(INFO)("Sample rolls: {}", rolls);
 }
 
 static void SymbolDiceTest() {
-	std::cout << "\n=== Symbol Dice Test ===\n";
+	LOG(INFO)("=== Symbol Dice Test ===");
 
 	// Create combat dice with multiple symbol types
 	auto combat_symbols = make_simple_static_symbol_set<"SMD">();
 	auto combat_die = make_simple_dice(combat_symbols, "0,0,SS,SD,S,MM,M,D");
 
-	std::cout << "Combat die generating function: " << combat_die.generating_function() << '\n';
+	LOG(INFO)("Combat die generating function: {}", combat_die.generating_function());
 
 	// Roll 3 combat dice
 	auto three_combat = combat_die * 3;
@@ -50,18 +49,17 @@ static void SymbolDiceTest() {
 	auto magic_stats = three_combat.get_statistics(1);
 	auto defense_stats = three_combat.get_statistics(2);
 
-	std::cout << "3 combat dice - E[swords]=" << sword_stats.E
-		<< ", E[magic]=" << magic_stats.E
-		<< ", E[defense]=" << defense_stats.E << '\n';
+	LOG(INFO)("3 combat dice - E[swords]={}, E[magic]={}, E[defense]={}",
+		sword_stats.E, magic_stats.E, defense_stats.E);
 
 	// Sample a roll
 	auto roll = three_combat.sample();
-	std::cout << "Sample roll: " << roll[0] << " swords, "
-		<< roll[1] << " magic, " << roll[2] << " defense\n";
+	LOG(INFO)("Sample roll: {} swords, {} magic, {} defense",
+		int(roll[0]), int(roll[1]), int(roll[2]));
 }
 
 static void CombinationDiceTest() {
-	std::cout << "\n=== Combination Dice Test ===\n";
+	LOG(INFO)("=== Combination Dice Test ===");
 
 	// Create a simple d6
 	auto symbols = make_simple_static_symbol_set<"N">();
@@ -69,7 +67,7 @@ static void CombinationDiceTest() {
 
 	// Create combination symbol set
 	auto comb_symbols = make_combination_symbol_set(std::array{d6});
-	std::cout << "Combination symbol set size: " << comb_symbols->size() << '\n';
+	LOG(INFO)("Combination symbol set size: {}", comb_symbols->size());
 
 	// Convert to combination dice
 	auto comb_d6 = d6.to_combination_dice(comb_symbols);
@@ -77,20 +75,20 @@ static void CombinationDiceTest() {
 	// Roll 10d6 as combination dice (tracks which faces appeared)
 	auto ten_d6 = comb_d6 * 10;
 
-	std::cout << "10d6 combination dice - number of outcomes: "
-		<< ten_d6.generating_function().terms().size() << '\n';
+	LOG(INFO)("10d6 combination dice - number of outcomes: {}",
+		ten_d6.generating_function().terms().size());
 
 	// Sample and show face distribution
 	auto roll = ten_d6.sample();
-	std::cout << "Sample roll (face counts): ";
+	std::string face_counts;
 	for (int i = 0; i < comb_symbols->size(); ++i) {
-		int count = roll[i];
+		int count = roll.get_exponent(i);
 		if (count > 0) {
 			auto face_value = comb_symbols->from_index(i).face[0];
-			std::cout << count << "x" << face_value << " ";
+			face_counts += std::to_string(count) + "x" + std::to_string(int(face_value)) + " ";
 		}
 	}
-	std::cout << '\n';
+	LOG(INFO)("Sample roll (face counts): {}", face_counts);
 }
 
 static void PolynomialTest() {
@@ -106,17 +104,17 @@ static void PolynomialTest() {
 		b += polynomial(monomial<DYNAMIC>({ 0, 1 }), 1);
 
 		auto c = a / b, d = a % b;
-		std::cout << a << '\n';
-		std::cout << b << '\n';
-		std::cout << c << '\n';
-		std::cout << d << '\n';
+		LOG(INFO)("{}", a);
+		LOG(INFO)("{}", b);
+		LOG(INFO)("{}", c);
+		LOG(INFO)("{}", d);
 		auto e = c * b;
-		std::cout << e << '\n';
+		LOG(INFO)("{}", e);
 		auto f = e + d;
-		std::cout << f << '\n';
+		LOG(INFO)("{}", f);
 		auto g = f - a;
 		g.trim();
-		std::cout << g << '\n';
+		LOG(INFO)("{}", g);
 	}
 	{
 		polynomial<DYNAMIC> a, b;
@@ -128,27 +126,27 @@ static void PolynomialTest() {
 		b -= 3;
 
 		auto c = a / b, d = a % b;
-		std::cout << a << '\n';
-		std::cout << b << '\n';
-		std::cout << c << '\n';
-		std::cout << d << '\n';
+		LOG(INFO)("{}", a);
+		LOG(INFO)("{}", b);
+		LOG(INFO)("{}", c);
+		LOG(INFO)("{}", d);
 		auto e = c * b;
-		std::cout << e << '\n';
+		LOG(INFO)("{}", e);
 		auto f = e + d;
-		std::cout << f << '\n';
+		LOG(INFO)("{}", f);
 		auto g = f - a;
-		std::cout << g << '\n';
+		LOG(INFO)("{}", g);
 	}
 }
 
 int main(int argc, char **argv) {
 	init(argc, argv);
-
+	
 	DiceTest();
 	SymbolDiceTest();
 	CombinationDiceTest();
 
-	//PolynomialTest();
+	PolynomialTest();
 
 	return 0;
 }

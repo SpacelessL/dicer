@@ -3,6 +3,9 @@
 #include "symbol_set.hpp"
 #include "polynomial.hpp"
 #include "sus/math.hpp"
+#include "sus/random.hpp"
+#include "sus/debug.hpp"
+#include "sus/logging.hpp"
 
 #include <variant>
 
@@ -123,7 +126,7 @@ public:
 	auto to_combination_dice(std::shared_ptr<CombSymbolSet> comb_symbol_set) const;
 
 	auto sample() const {
-		double s = get_random();
+		double s = get_random(0.0, 1.0);
 		accumulator<> sum;
 		for (auto &&[mn, coef] : pl.terms())
 			if (double(sum += coef) - s >= -eps)
@@ -160,12 +163,16 @@ template<typename F, typename NS>
 auto dice<S, T>::transformed(F &&func, std::shared_ptr<NS> ns) const
 requires requires(const mono &mn) { { func(mn) } -> MonomialType; } {
 	using new_mono = std::remove_cvref_t<std::invoke_result_t<F, mono>>;
+	using new_dice = dice<NS, typename new_mono::underlying_type>;
 	if constexpr (std::is_same_v<NS, S>) if (!ns) ns = s;
-	ENSURE(ns, "Missing new symbol set");
+	ASSERT(ns, "Missing new symbol set");
 	unordered_map<new_mono, accumulator<>> terms;
 	for (auto &&[mono, coef] : pl.terms())
 		terms[func(mono)] += coef;
-	return distribution<NS, typename new_mono::underlying_type>(std::move(ns), std::move(terms));
+	unordered_map<new_mono, double> new_terms;
+	for (auto &&[mono, coef] : terms)
+		new_terms[mono] = coef;
+	return new_dice(std::move(ns), std::move(new_terms));
 }
 
 template<SymbolSet S, std::signed_integral T>
@@ -241,15 +248,14 @@ auto make_simple_dice(std::shared_ptr<S> s, std::string_view text) requires std:
 					mn.add_exponent(idx, 1);
 				else {
 					auto num = get_num(part.substr(0, part.length() - 1));
-					ENSURE(num);
+					ASSERT(num);
 					mn.add_exponent(idx, num.value());
 				}
 			}
 			else {
-				ENSURE(S::N == 1);
 				auto num = get_num(part);
-				ENSURE(num);
-				mn.add_exponent(0, num.value());
+				ASSERT(num && (S::N == 1 || *num == 0), "Invalid input", text, word, part);
+				if (*num) mn.add_exponent(0, num.value());
 			}
 		};
 		for (int i = 0, j = -1; i < word.size(); i++)
