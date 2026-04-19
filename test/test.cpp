@@ -66,7 +66,7 @@ static void CombinationDiceTest() {
 	auto d6 = make_simple_dice(symbols, "1,2,3,4,5,6");
 
 	// Create combination symbol set
-	auto comb_symbols = make_combination_symbol_set(std::array{d6});
+	auto comb_symbols = make_combination_symbol_set(std::ranges::views::single(d6));
 	LOG(INFO)("Combination symbol set size: {}", comb_symbols->size());
 
 	// Convert to combination dice
@@ -141,7 +141,7 @@ static void PolynomialTest() {
 
 int main(int argc, char **argv) {
 	init(argc, argv);
-	
+
 	DiceTest();
 	SymbolDiceTest();
 	CombinationDiceTest();

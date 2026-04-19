@@ -12,7 +12,7 @@
 namespace spaceless {
 
 template<size_t N, std::signed_integral T = int8_t>
-class alignas(N ? std::bit_ceil(N * sizeof(T)) : 8) monomial final {
+class alignas(N ? std::bit_ceil(N * sizeof(T)) : alignof(std::vector<T>)) monomial final {
 public:
 	static constexpr size_t num_symbol = N;
 	using underlying_type = T;
@@ -134,6 +134,6 @@ struct ankerl::unordered_dense::hash<spaceless::monomial<N, T>> {
 	using is_avalanching = void;
 
 	auto operator()(const spaceless::monomial<N, T> &m) const noexcept -> uint64_t {
-		return detail::wyhash::hash(m.data(), m.dimension() * sizeof(int));
+		return detail::wyhash::hash(m.data(), m.dimension() * sizeof(T));
 	}
 };

@@ -19,30 +19,28 @@ concept SymbolSet = requires { typename T::symbol; { T::N } -> std::convertible_
 		}
 	);
 
-template<auto FirstSymbol, auto ...RestSymbols>
-requires (std::is_same_v<decltype(FirstSymbol), decltype(RestSymbols)> && ...)
+template<auto ...Symbols>
+requires (std::is_same_v<head_of_t<decltype(Symbols)...>, decltype(Symbols)> && ...)
 class static_symbol_set final {
 public:
-	using symbol = decltype(FirstSymbol);
-	static constexpr size_t N = 1 + sizeof...(RestSymbols);
+	using symbol = head_of_t<decltype(Symbols)...>;
+	static constexpr size_t N = sizeof...(Symbols);
 
-	constexpr int8_t get_index(const symbol &symbol) const {
-		if (symbol == FirstSymbol) return 0;
-		if constexpr (N > 1) {
-			auto ret = static_symbol_set<RestSymbols...>{}.get_index(symbol);
-			return ret == -1 ? ret : 1 + ret;
-		}
-		return -1;
+	constexpr int8_t get_index(const symbol &s) const {
+		int8_t i = 0, ret = -1;
+		((s == Symbols ? (ret = i, true) : (++i, false)) || ...);
+		return ret;
 	}
 
 	constexpr symbol from_index(int8_t index) const {
-		if (index == 0) return FirstSymbol;
-		if constexpr (N > 1) return static_symbol_set<RestSymbols...>{}.from_index(index - 1);
-		return{};
+		int8_t i = 0;
+		symbol ret{};
+		((i++ == index ? (ret = Symbols) : false) || ...);
+		return ret;
 	}
 
-	constexpr bool contains(const symbol &symbol) const {
-		return symbol == FirstSymbol || ((symbol == RestSymbols) || ...);
+	constexpr bool contains(const symbol &s) const {
+		return ((s == Symbols) || ...);
 	}
 
 	constexpr int size() const { return N; }
@@ -64,6 +62,11 @@ public:
 	template<std::ranges::input_range Range>
 	dynamic_symbol_set(Range &&range) { for (auto &&s : range) add_symbol(s); }
 	dynamic_symbol_set(std::initializer_list<symbol> init) : dynamic_symbol_set(std::views::all(init)) {}
+
+	void reserve(size_t n) {
+		to_index.reserve(n);
+		symbols.reserve(n);
+	}
 
 	int8_t add_symbol(const symbol &symbol) {
 		if (contains(symbol))
@@ -90,7 +93,7 @@ private:
 namespace detail {
 template<string_literal Symbols, std::size_t... I>
 auto make_simple_static_symbol_set(std::index_sequence<I...>) {
-	static_assert((((Symbols[I] < '0' || Symbols[I] > '9') && Symbols[I] != '-') && ...));
+	static_assert((((Symbols[I] < '0' || Symbols[I] > '9') && Symbols[I] != '-' && Symbols[I] != ',') && ...));
 	return std::make_shared<static_symbol_set<Symbols[I]...>>();
 }
 }
